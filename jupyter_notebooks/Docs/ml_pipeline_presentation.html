@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PeoplePulse | ML Pipeline Presentation</title>
+  <style>
+    :root {
+      --navy: #102a43;
+      --blue: #1565c0;
+      --teal: #00897b;
+      --gold: #f59e0b;
+      --red: #d64545;
+      --mist: #f4f8fc;
+      --ink: #243b53;
+      --muted: #627d98;
+      --white: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--mist);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.55;
+    }
+    .slide {
+      min-height: 100vh;
+      padding: 7vh 9vw;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      page-break-after: always;
+      background: var(--white);
+    }
+    .slide:nth-child(even) { background: linear-gradient(135deg, #f4f8fc, #eef5f4); }
+    .title {
+      color: var(--navy);
+      font-size: clamp(2.5rem, 6vw, 5.5rem);
+      line-height: 1.05;
+      margin: 0 0 1rem;
+    }
+    h2 { color: var(--navy); font-size: clamp(2rem, 4vw, 3.5rem); margin: 0 0 1.5rem; }
+    h3 { color: var(--blue); margin-bottom: .45rem; }
+    p, li { font-size: clamp(1rem, 1.5vw, 1.3rem); }
+    .subtitle { color: var(--muted); font-size: clamp(1.2rem, 2vw, 1.8rem); max-width: 850px; }
+    .accent { color: var(--teal); }
+    .tag {
+      display: inline-block;
+      color: var(--white);
+      background: var(--teal);
+      padding: .35rem .8rem;
+      border-radius: 999px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      font-size: .8rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.2rem;
+    }
+    .card {
+      padding: 1.25rem;
+      border: 1px solid #dce8f2;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .82);
+      box-shadow: 0 8px 24px rgba(16, 42, 67, .07);
+    }
+    .card p, .card li { font-size: 1rem; }
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: .7rem;
+      margin: 1rem 0;
+    }
+    .flow span {
+      background: var(--navy);
+      color: white;
+      padding: .8rem 1rem;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+    .arrow { color: var(--teal); font-size: 1.8rem; font-weight: 700; }
+    code, pre {
+      font-family: Consolas, "Courier New", monospace;
+      background: #102a43;
+      color: #e6fffa;
+      border-radius: 10px;
+    }
+    pre { padding: 1.2rem; overflow-x: auto; font-size: .95rem; }
+    .note {
+      border-left: 5px solid var(--gold);
+      padding: .8rem 1rem;
+      background: #fff8e6;
+      border-radius: 0 10px 10px 0;
+    }
+    .good { border-left-color: var(--teal); background: #e6fffa; }
+    .warning { border-left-color: var(--red); background: #fff1f1; }
+    table { width: 100%; border-collapse: collapse; font-size: 1rem; background: white; }
+    th, td { border: 1px solid #dce8f2; padding: .75rem; text-align: left; }
+    th { color: white; background: var(--navy); }
+    .footer { color: var(--muted); margin-top: 2rem; font-size: .9rem; }
+    @media print {
+      .slide { min-height: 100vh; padding: 1.2cm; }
+      .slide:last-child { page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+  <section class="slide">
+    <span class="tag">PeoplePulse</span>
+    <h1 class="title">Employee Attrition<br><span class="accent">Machine Learning Pipeline</span></h1>
+    <p class="subtitle">How the model is trained, deployed through Heroku, and represented in the live Streamlit dashboard.</p>
+    <p class="footer">Presentation guide | Current implementation and future API roadmap</p>
+  </section>
+
+  <section class="slide">
+    <h2>1. The business problem</h2>
+    <p>Employee attrition can increase recruitment costs, remove organisational knowledge, and disrupt team performance.</p>
+    <div class="grid">
+      <div class="card"><h3>Objective</h3><p>Identify patterns linked with historical attrition and prioritise supportive retention conversations.</p></div>
+      <div class="card"><h3>Output</h3><p>An estimated probability that an employee belongs to the attrition class, converted into a risk band.</p></div>
+      <div class="card"><h3>Responsible use</h3><p>The score supports human decision-making. It is not a certainty, a diagnosis, or a reason to penalise an employee.</p></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>2. Current repository structure</h2>
+    <pre>app.py                                      # Streamlit overview page
+dashboard_utils.py                          # model loading and scored data
+ml_model.py                                 # reusable training and prediction logic
+datasets/cleaned-data/HR-Employee-Attrition-cleaned.csv
+models/employee_attrition_pipeline.joblib   # fitted pipeline
+jupyter_notebooks/employee_attrition_ml.ipynb
+Procfile                                    # Heroku web process
+requirements.txt                            # deployment dependencies</pre>
+    <p class="note">The <code>.joblib</code> file is an application artifact. It is machine-readable rather than presentation-readable; the notebook and this document explain what it contains.</p>
+  </section>
+
+  <section class="slide">
+    <h2>3. Training pipeline</h2>
+    <div class="flow">
+      <span>Cleaned CSV</span><b class="arrow">→</b>
+      <span>Feature selection</span><b class="arrow">→</b>
+      <span>Train/test split</span><b class="arrow">→</b>
+      <span>Preprocessing</span><b class="arrow">→</b>
+      <span>Logistic regression</span><b class="arrow">→</b>
+      <span>Evaluation</span><b class="arrow">→</b>
+      <span>Save pipeline</span>
+    </div>
+    <ul>
+      <li><strong>Target:</strong> <code>AttritionBinary</code>, where 0 means stayed and 1 means left.</li>
+      <li><strong>Excluded:</strong> the target, duplicate label <code>Attrition</code>, and identifier <code>EmployeeNumber</code>.</li>
+      <li><strong>Split:</strong> 80% training data and 20% test data, stratified and reproducible with <code>random_state=42</code>.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>4. How the data is prepared</h2>
+    <div class="grid">
+      <div class="card"><h3>Numeric columns</h3><p>Missing values are filled with the median, then values are standardised with <code>StandardScaler</code>.</p><p>Examples: income, age, distance, tenure, and satisfaction scores.</p></div>
+      <div class="card"><h3>Categorical columns</h3><p>Missing values are filled with the most frequent value, then categories are converted using one-hot encoding.</p><p>Examples: department, job role, overtime, and travel.</p></div>
+      <div class="card"><h3>One pipeline</h3><p>Preprocessing and classification are saved together, ensuring live predictions use the same transformations as training.</p></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>5. The model and its explanation</h2>
+    <p>The classifier is a class-balanced logistic regression model. It produces a probability from 0 to 1.</p>
+    <table>
+      <tr><th>Probability</th><th>Risk band</th><th>Meaning in the app</th></tr>
+      <tr><td>Below 0.30</td><td>Low</td><td>Lower estimated risk in this model</td></tr>
+      <tr><td>0.30 to below 0.60</td><td>Medium</td><td>Worth monitoring and understanding context</td></tr>
+      <tr><td>0.60 or higher</td><td>High</td><td>Priority for a supportive review</td></tr>
+    </table>
+    <p class="note good">A positive coefficient is associated with higher predicted risk; a negative coefficient is associated with lower predicted risk. These relationships do not prove causation.</p>
+  </section>
+
+  <section class="slide">
+    <h2>6. What the Joblib file contains</h2>
+    <p><code>employee_attrition_pipeline.joblib</code> stores the fitted pipeline after training.</p>
+    <div class="flow">
+      <span>Imputation settings</span><b class="arrow">+</b>
+      <span>Scaling settings</span><b class="arrow">+</b>
+      <span>Encoding categories</span><b class="arrow">+</b>
+      <span>Feature order</span><b class="arrow">+</b>
+      <span>Model coefficients</span>
+    </div>
+    <p>It is loaded by Python with Joblib. It should not be edited manually. Human-readable evidence comes from the notebook, charts, metrics, and future summary exports such as CSV or JSON.</p>
+  </section>
+
+  <section class="slide">
+    <h2>7. From model to dashboard</h2>
+    <div class="flow">
+      <span>app.py</span><b class="arrow">→</b>
+      <span>get_scored_data()</span><b class="arrow">→</b>
+      <span>get_model()</span><b class="arrow">→</b>
+      <span>load_or_train_model()</span><b class="arrow">→</b>
+      <span>predict_proba()</span><b class="arrow">→</b>
+      <span>Risk band</span>
+    </div>
+    <ul>
+      <li>The app loads the cleaned dataset and the saved model.</li>
+      <li>The model applies its stored preprocessing to employee feature columns.</li>
+      <li><code>predict_proba(...)</code> returns the estimated probability for class 1, meaning attrition.</li>
+      <li>The app adds <code>Risk probability</code> and <code>Risk band</code> columns to the displayed data.</li>
+      <li>Streamlit caching prevents unnecessary reloading during normal interaction.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>8. What the user sees</h2>
+    <div class="grid">
+      <div class="card"><h3>Overview</h3><p>Total employees, historical attrition rate, high-risk profile count, and workforce hotspots.</p></div>
+      <div class="card"><h3>Charts</h3><p>Attrition by job role and department, presented with interactive Plotly visualisations.</p></div>
+      <div class="card"><h3>Risk triage</h3><p>Employee or segment-level risk information that helps users prioritise investigation and support.</p></div>
+      <div class="card"><h3>Actions</h3><p>Evidence-led retention ideas connected to the observed patterns, not automatic employment decisions.</p></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>9. How Heroku runs the app</h2>
+    <div class="flow">
+      <span>Merge to connected branch</span><b class="arrow">→</b>
+      <span>Heroku build</span><b class="arrow">→</b>
+      <span>Install requirements</span><b class="arrow">→</b>
+      <span>Run setup.sh</span><b class="arrow">→</b>
+      <span>Start Streamlit</span><b class="arrow">→</b>
+      <span>Live HTTPS URL</span>
+    </div>
+    <p>The <code>Procfile</code> starts the web process with:</p>
+    <pre>web: sh setup.sh &amp;&amp; streamlit run app.py</pre>
+    <p>At startup, the app loads the dataset and model from the deployed release. A new model or code change becomes live after a successful redeployment and restart.</p>
+    <p class="note warning">Heroku storage is ephemeral. Do not treat files generated at runtime as permanent storage. Version important model artifacts or use durable external storage.</p>
+  </section>
+
+  <section class="slide">
+    <h2>10. Recommended live deployment lifecycle</h2>
+    <ol>
+      <li>Update or validate the cleaned data.</li>
+      <li>Retrain the model in the notebook when the data, features, or model logic changes.</li>
+      <li>Evaluate the new model on a held-out test set.</li>
+      <li>Save and version the compatible <code>.joblib</code> pipeline.</li>
+      <li>Commit the model and code changes together.</li>
+      <li>Merge to the Heroku-connected branch.</li>
+      <li>Check the Heroku build logs and test the live dashboard.</li>
+    </ol>
+    <p>This keeps the model artifact, feature logic, and app representation aligned.</p>
+  </section>
+
+  <section class="slide">
+    <h2>11. Future: live API data</h2>
+    <p>The current app reads a versioned CSV. A future production design could replace or supplement that source with a secure API.</p>
+    <div class="flow">
+      <span>HR system</span><b class="arrow">→</b>
+      <span>Authenticated API</span><b class="arrow">→</b>
+      <span>Validation layer</span><b class="arrow">→</b>
+      <span>Model pipeline</span><b class="arrow">→</b>
+      <span>Dashboard</span>
+    </div>
+    <div class="grid">
+      <div class="card"><h3>API ingestion</h3><p>Fetch employee records using HTTPS, authentication, pagination, and timeouts.</p></div>
+      <div class="card"><h3>Schema validation</h3><p>Confirm required columns, data types, allowed categories, and missing-value rules before prediction.</p></div>
+      <div class="card"><h3>Operational safety</h3><p>Use secrets management, access control, logging, retries, rate limits, and a safe fallback when the API is unavailable.</p></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>12. Future API architecture</h2>
+    <p>A robust design would separate data retrieval from prediction:</p>
+    <pre>api_client.py       # authenticates and retrieves current records
+data_validation.py  # checks schema and cleans API responses
+ml_model.py         # transforms data and predicts
+dashboard_utils.py  # caches and prepares dashboard data
+app.py              # presents results in Streamlit</pre>
+    <ul>
+      <li>Keep API credentials in Heroku Config Vars, never in Git.</li>
+      <li>Do not expose personal employee data in URLs, browser code, logs, or presentation screenshots.</li>
+      <li>Record the model version and prediction timestamp with each result.</li>
+      <li>Monitor input drift and model performance when confirmed outcomes become available.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>13. Limitations and ethical safeguards</h2>
+    <div class="grid">
+      <div class="card"><h3>Uncertainty</h3><p>A probability is an estimate based on historical patterns, not a guaranteed outcome.</p></div>
+      <div class="card"><h3>Causation</h3><p>Model coefficients show associations. They do not establish that changing one factor will prevent attrition.</p></div>
+      <div class="card"><h3>Fairness</h3><p>Review results for unfair impact across groups and avoid using the model as the sole basis for decisions.</p></div>
+      <div class="card"><h3>Privacy</h3><p>Restrict access, minimise personal data, and retain only what is necessary for the retention purpose.</p></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>14. Conclusion</h2>
+    <p>PeoplePulse connects a reproducible machine-learning pipeline with an accessible business dashboard.</p>
+    <div class="flow">
+      <span>Train locally</span><b class="arrow">→</b>
+      <span>Save compatible pipeline</span><b class="arrow">→</b>
+      <span>Deploy with Heroku</span><b class="arrow">→</b>
+      <span>Score employee data</span><b class="arrow">→</b>
+      <span>Support retention action</span>
+    </div>
+    <p class="subtitle">The next step is to introduce a validated, authenticated live API while preserving the same preprocessing, model versioning, privacy, and human-oversight principles.</p>
+    <p class="footer">Open this file in a browser and use full-screen mode for presentation. Print to PDF if a static copy is required.</p>
+  </section>
+</body>
+</html>
